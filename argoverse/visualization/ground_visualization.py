@@ -41,6 +41,7 @@ def draw_ground_pts_in_image(
     plot_ground: bool = True,
     motion_compensate: bool = False,
     camera: Optional[str] = None,
+    is_road_segmentation = False
 ) -> Union[None, np.ndarray]:
     """Write an image to disk with rendered ground points for every camera.
 
@@ -72,9 +73,14 @@ def draw_ground_pts_in_image(
     calib_data = read_json_file(calib_fpath)
 
     # repeat green to red colormap every 50 m.
-    colors_arr = np.array(
-        [[color_obj.rgb] for color_obj in Color("red").range_to(Color("green"), NUM_RANGE_BINS)]
-    ).squeeze()
+    if is_road_segmentation == False :
+        colors_arr = np.array(
+            [[color_obj.rgb] for color_obj in Color("red").range_to(Color("green"), NUM_RANGE_BINS)]
+        ).squeeze()
+    else :
+        colors_arr = np.array(
+            [[color_obj.rgb] for color_obj in Color("green").range_to(Color("green"), NUM_RANGE_BINS)]
+        ).squeeze()
     np.fliplr(colors_arr)
 
     for cam_idx, camera_name in enumerate(RING_CAMERA_LIST + STEREO_CAMERA_LIST):
@@ -121,13 +127,15 @@ def draw_ground_pts_in_image(
         rgb_bins = rgb_bins % NUM_RANGE_BINS
         uv_colors = (255 * colors_arr[rgb_bins]).astype(np.int32)
 
-        img = draw_point_cloud_in_img_cv2(img, uv, np.fliplr(uv_colors))
+        img = draw_point_cloud_in_img_cv2(img, uv, np.fliplr(uv_colors) , draw_road_segmentation = is_road_segmentation )
 
         if not Path(f"{experiment_prefix}_ground_viz/{log_id}/{camera_name}").exists():
             os.makedirs(f"{experiment_prefix}_ground_viz/{log_id}/{camera_name}")
 
         save_dir = f"{experiment_prefix}_ground_viz/{log_id}/{camera_name}"
         cv2.imwrite(f"{save_dir}/{camera_name}_{lidar_timestamp}.jpg", img)
+        
+        #print( img )
         if camera == camera_name:
             return cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     return None

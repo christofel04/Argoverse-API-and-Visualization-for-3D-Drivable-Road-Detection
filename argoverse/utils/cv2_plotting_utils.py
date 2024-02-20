@@ -62,7 +62,7 @@ def draw_clipped_line_segment(
     )
 
 
-def draw_point_cloud_in_img_cv2(img: np.ndarray, xy: np.ndarray, colors: np.ndarray, radius: int = 5) -> np.ndarray:
+def draw_point_cloud_in_img_cv2(img: np.ndarray, xy: np.ndarray, colors: np.ndarray, radius: int = 5 , draw_road_segmentation = False ) -> np.ndarray:
     """Plot a point cloud in an image by drawing small circles centered at (x,y) locations.
 
     Note these are not (u,v) but rather (v,u) coordinate pairs.
@@ -76,10 +76,33 @@ def draw_point_cloud_in_img_cv2(img: np.ndarray, xy: np.ndarray, colors: np.ndar
     Returns:
         img: Array of shape (M, N, 3), with all circles plotted
     """
+    list_of_highest_area_with_road = [ None for i in range( img.shape[ 1 ])]
+    
+    print( "Image Shape : " + str( img.shape ))
+    
     for i, (x, y) in enumerate(xy):
         rgb = colors[i]
         rgb = tuple([int(intensity) for intensity in rgb])
         img = cv2.circle(img, (x, y), radius, tuple(rgb), -1)
+        
+        
+        if draw_road_segmentation == True : 
+            #print( x )
+            if  ( list_of_highest_area_with_road[ y ] is None ) :
+                list_of_highest_area_with_road[ y ] = x
+            
+        
+            elif  ( x < list_of_highest_area_with_road[ y ] ) :
+                list_of_highest_area_with_road[ y ] = x 
+        
+    #print( "Image of Shape is : " + str( img.shape) )
+    if draw_road_segmentation == True :
+        # Make area road with color Green
+        for x_axis , highest_y_value in enumerate( list_of_highest_area_with_road ) :
+            if highest_y_value is not None :
+                img[ highest_y_value : ][ x_axis] = [ 0 , 255 , 0 ]
+                
+                        	       
     return img
 
 

@@ -16,11 +16,21 @@ from argoverse.utils.camera_stats import CAMERA_LIST, RING_CAMERA_LIST, STEREO_C
 from argoverse.utils.ply_loader import load_ply
 from argoverse.utils.se3 import SE3
 
+# For making drivable area label
+from scipy.spatial.transform import Rotation as R
+from PIL import Image, ImageOps
+
+from argoverse.map_representation.map_api import ArgoverseMap
+
+import copy
+import math
+
+
 logger = logging.getLogger(__name__)
 
 
 class ArgoverseTrackingLoader:
-    def __init__(self, root_dir: str) -> None:
+    def __init__(self, root_dir: str , av_hd_map_dir = "/home/ofel04/argoverse-api/map_files/") -> None:
         # initialize class member
         self.CAMERA_LIST = CAMERA_LIST
         self._log_list: Optional[List[str]] = None
@@ -57,6 +67,15 @@ class ArgoverseTrackingLoader:
         self.num_stereo_camera_frame: int = len(self.image_timestamp_list[STEREO_CAMERA_LIST[0]])
 
         self.sync: SynchronizationDB = SynchronizationDB(root_dir)
+
+        # Get drivable area map for labelling
+
+        avmap = ArgoverseMap( root = av_hd_map_dir )
+
+        self.current_city_name = self.city_name
+
+        self.drivable_rasterized_map = avmap.get_rasterized_driveable_area( self.current_city_name )[0][ : , : ]
+        self.drivable_rasterized_map_rotation_matrix = np.array( avmap.get_rasterized_driveable_area( self.current_city_name )[1][ : , : ])
 
         assert self.image_list_sync is not None
         assert self.calib is not None
@@ -317,7 +336,7 @@ class ArgoverseTrackingLoader:
 
         return self
 
-    def __next__(self) -> "ArgoverseTrackingLoader":
+    def __next__(self , av_hd_map_dir = "/home/ofel04/argoverse-api/map_files/" ) -> "ArgoverseTrackingLoader":
         self.counter += 1
 
         if self.counter >= len(self):
@@ -327,6 +346,14 @@ class ArgoverseTrackingLoader:
             self.num_lidar_frame = len(self.lidar_timestamp_list)
             self.num_ring_camera_frame = len(self.image_timestamp_list[RING_CAMERA_LIST[0]])
             self.num_stereo_camera_frame = len(self.image_timestamp_list[STEREO_CAMERA_LIST[0]])
+            
+            avmap = ArgoverseMap( root = av_hd_map_dir )
+            
+            self.current_city_name = self.city_name
+            self.drivable_rasterized_map = avmap.get_rasterized_driveable_area( self.current_city_name )[0][ : , : ]
+            self.drivable_rasterized_map_rotation_matrix = np.array( avmap.get_rasterized_driveable_area( self.current_city_name )[1][ : , : ])
+            
+            print( "Self is : " + str( self ))
             return self
 
     def __len__(self) -> int:
@@ -357,6 +384,52 @@ Time: {time_in_sec} sec
 Total images: {sum(num_images)}
 Total bounding box: {sum(num_annotations)}
         """
+    
+    # Function to take BEV Drivable Label from Drivable Rasterized Map
+
+    def get_rasterized_drivabel_area_label( self , key : int , map_range : list = [ -50 , -50 , 50 , 70] , grid_size : list = [0.2, 0.2]) -> np.array :
+
+        # Get matrix rotation of Ego Vehicle Coordinate to City Coordinate
+    
+        city_to_egovehicle_se3 = self.get_pose(key)
+
+        # Get ego vehicle city coordinate and rotation
+
+        x,y,_ = city_to_egovehicle_se3.translation
+
+        #print( "Location of ego- vehicle : x = {}, y = {}".format( x , y ) )
+
+        ego_vehicle_rotation = city_to_egovehicle_se3.rotation
+
+        pose_rotation_matrix_to_yaw = R.from_matrix( ego_vehicle_rotation )
+
+        yaw_angle = pose_rotation_matrix_to_yaw.as_euler( "zyx" , degrees = True )[0]
+
+
+        # Get Drivable area in Raster Map
+
+        x_raster_map_coordinate = x + self.drivable_rasterized_map_rotation_matrix[0][2]
+        y_raster_map_coordinate = y + self.drivable_rasterized_map_rotation_matrix[1][2]
+
+        img = Image.fromarray( self.drivable_rasterized_map ).crop( (( x_raster_map_coordinate-120) , ( y_raster_map_coordinate -120 ) , ( x_raster_map_coordinate + 120 ) , ( y_raster_map_coordinate +  120 )))#.rotate( -yaw_angle/ math.pi * 180 + 180)
+
+        img = img.resize((int( 120 * 1/grid_size[0]), int( 120* 1/grid_size[1])), resample=Image.BOX)
+
+        #img_with_ground_height = Image.fromarray( ground_heigh_raster_map_with_color ).crop( (( x_raster_map_coordinate-80) , ( y_raster_map_coordinate -80 ) , ( x_raster_map_coordinate + 80 ) , ( y_raster_map_coordinate +  80 ))).rotate( -yaw_angle/ math.pi * 180 + 180)
+
+        img = np.array( img )
+
+        img = ImageOps.mirror( Image.fromarray( img ).rotate( yaw_angle + 90))
+
+        rotated_bev_image_shape = np.array( img ).shape
+
+        img = img.crop( ( rotated_bev_image_shape[0]/2 + map_range[0] * 1/grid_size[0] , rotated_bev_image_shape[1]/2 - map_range[3] * 1/grid_size[1] , rotated_bev_image_shape[0]/2 + map_range[2] * 1/grid_size[0]  , rotated_bev_image_shape[1]/2 - map_range[1] * 1/grid_size[1]))
+
+        img = img.resize((int( 100 * 1/grid_size[0]), int( 120 * 1/grid_size[1])), resample=Image.BOX)
+
+        return np.array( img )
+
+
 
     def __getitem__(self, key: int) -> "ArgoverseTrackingLoader":
         self.counter = key
@@ -364,6 +437,7 @@ Total bounding box: {sum(num_annotations)}
         self.num_lidar_frame = len(self.lidar_timestamp_list)
         self.num_ring_camera_frame = len(self.image_timestamp_list[RING_CAMERA_LIST[0]])
         self.num_stereo_camera_frame = len(self.image_timestamp_list[STEREO_CAMERA_LIST[0]])
+        self.bev_map_drivable_area_label = self.get_rasterized_drivabel_area_label( key ) # Get Drivable Area Label for map
         return self
 
     def get(self, log_id: str) -> "ArgoverseTrackingLoader":
@@ -515,7 +589,7 @@ Total bounding box: {sum(num_annotations)}
             return load_image(image_path)
         return image_path
 
-    def get_lidar(self, idx: int, log_id: Optional[str] = None, load: bool = True) -> Union[str, np.ndarray]:
+    def get_lidar(self, idx: int, log_id: Optional[str] = None, load: bool = True , is_return_intensity = False) -> Union[str, np.ndarray]:
         """Get lidar corresponding to frame index idx (in lidar frame).
 
         Args:
@@ -537,8 +611,61 @@ Total bounding box: {sum(num_annotations)}
         assert idx < len(self._lidar_timestamp_list[log_id])
 
         if load:
-            return load_ply(self._lidar_list[log_id][idx])
+                        
+            return load_ply(self._lidar_list[log_id][idx] , is_return_intensity = is_return_intensity)
         return self._lidar_list[log_id][idx]
+    
+    def get_lidar_in_rasterized_map_coordinate( self , idx : int , log_id: Optional[str] = None, load: bool = True , is_return_intensity = True) -> np.ndarray :
+        # Function to get LiDAR points in a frame in City Coordinate
+
+        lidar_points_in_ego_vehicle_coordinate = self.get_lidar( idx , log_id , load , is_return_intensity=is_return_intensity )
+
+        city_to_egovehicle_se3 = self.get_pose(idx)
+
+        x,y,_ = city_to_egovehicle_se3.translation
+
+        lidar_pts_for_bev = copy.deepcopy(lidar_points_in_ego_vehicle_coordinate)[ : , :3 ]
+        lidar_pts_in_city_coordinate = city_to_egovehicle_se3.transform_point_cloud(
+                lidar_pts_for_bev
+            )  # put into city coords
+        
+        #print( "Shape of LiDAR points in City Coordinate : " + str( lidar_pts_in_city_coordinate.shape ))
+        #print( "Shape of LiDAR points in Ego Vehicle Coordinate : " + str( lidar_points_in_ego_vehicle_coordinate.shape ))
+        
+        if lidar_points_in_ego_vehicle_coordinate.shape[1] == 4 : 
+            lidar_pts_in_city_coordinate = np.concatenate( [ lidar_pts_in_city_coordinate[ : ] , lidar_points_in_ego_vehicle_coordinate[ : , 3 : ] ] , axis = 1 )
+        
+        if lidar_pts_in_city_coordinate.shape[1] == 4 :
+
+            lidar_pts_in_city_coordinate = lidar_pts_in_city_coordinate - [[ x , y , 0 , 0] for i in range( lidar_pts_in_city_coordinate.shape[0]) ]
+        else :
+
+            lidar_pts_in_city_coordinate = lidar_pts_in_city_coordinate - [[ x , y , 0] for i in range( lidar_pts_in_city_coordinate.shape[0]) ]
+
+
+        # Rotate LiDAR point in ego Vehicle orientation
+            
+        ego_vehicle_rotation = city_to_egovehicle_se3.rotation
+
+        pose_rotation_matrix_to_yaw = R.from_matrix( ego_vehicle_rotation )
+
+        yaw_angle = pose_rotation_matrix_to_yaw.as_euler( "zyx" , degrees = False )[0]
+
+        yaw_angle = yaw_angle + 0.5 * math.pi
+
+        lidar_pts_new_coordinate = lidar_pts_in_city_coordinate[ : , 0 : 2].dot( np.array( [[math.cos( yaw_angle ) , -math.sin( yaw_angle )] , [ math.sin( yaw_angle ) , math.cos( yaw_angle )]]))
+
+        #lidar_pts_new_coordinate[ : , 2 : ] = lidar_pts_in_city_coordinate[ : , 2 : ]
+
+        #print( "Shape of LiDAR Point in City Coordinate : " + str( lidar_pts_new_coordinate.shape ))
+
+        lidar_pts_new_coordinate = np.concatenate( [ np.array( lidar_pts_new_coordinate ) , np.array( lidar_pts_in_city_coordinate )[ : , 2 : ]]  , axis = 1 )
+
+        # Mirror LiDAR points in y- axis to make LiDAR BEV map coordinate same exactly with ego- vehicle coordinate
+            
+        lidar_pts_new_coordinate = np.concatenate( [ -1* lidar_pts_new_coordinate[ : , 0 ].reshape(-1, 1) , -1* lidar_pts_new_coordinate[ : , 1 ].reshape(-1, 1) , lidar_pts_new_coordinate[ : , 2 : ] ] , axis = 1 )
+
+        return lidar_pts_new_coordinate
 
     def get_label_object(self, idx: int, log_id: Optional[str] = None) -> List[ObjectLabelRecord]:
         """Get label corresponding to frame index idx (in lidar frame).
@@ -561,6 +688,7 @@ Total bounding box: {sum(num_annotations)}
         assert idx < len(self._lidar_timestamp_list[log_id])
 
         return object_label.read_label(self._label_list[log_id][idx])
+        
 
     def get_calibration(self, camera: str, log_id: Optional[str] = None) -> Calibration:
         """Get calibration corresponding to the camera.

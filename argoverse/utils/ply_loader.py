@@ -10,7 +10,7 @@ import pyntcloud
 _PathLike = Union[str, "os.PathLike[str]"]
 
 
-def load_ply(ply_fpath: _PathLike) -> np.ndarray:
+def load_ply(ply_fpath: _PathLike , is_return_intensity = False) -> np.ndarray:
     """Load a point cloud file from a filepath.
 
     Args:
@@ -24,6 +24,12 @@ def load_ply(ply_fpath: _PathLike) -> np.ndarray:
     x = np.array(data.points.x)[:, np.newaxis]
     y = np.array(data.points.y)[:, np.newaxis]
     z = np.array(data.points.z)[:, np.newaxis]
+    
+    if ( is_return_intensity == True ) :
+    
+    	intensity = np.array(data.points.intensity)[: , np.newaxis]
+    	
+    	return np.concatenate( (x , y , z , intensity ), axis =1 )
 
     return np.concatenate((x, y, z), axis=1)
 
