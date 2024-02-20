@@ -2,15 +2,15 @@
 [![Python 3.8](https://img.shields.io/badge/python-3.8-blue.svg)](https://www.python.org/downloads/release/python-380/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 ![Linux CI](https://github.com/argoai/argoverse-api/workflows/Python%20CI/badge.svg)
-
-> ### [Argoverse 2 API](https://github.com/argoai/av2-api) has been released! Check out our [NeurIPS 2021 Datasets and Benchmarks publication](https://datasets-benchmarks-proceedings.neurips.cc/paper/2021/hash/4734ba6f3de83d861c3176a6273cac6d-Abstract-round2.html) to learn more about the datasets.
-
 ---
 
-# Argoverse API
+# Argoverse Dataset API for 3D Drivable Road Detection
+### By : Christofel Rio Goenawan
+### Master of Robotics at Korea Advanced Institute of Science and Technology
+### E- Mail : christofel.goenawan@kaist.ac.kr
 
-> Official GitHub repository for [Argoverse dataset](https://www.argoverse.org)
-
+---
+### For Open Source 3D Road Detection see : [K-Lane 3D Road Detection DevKit](https://github.com/kaist-avelab/K-Lane)
 ---
 
 ## Table of Contents
