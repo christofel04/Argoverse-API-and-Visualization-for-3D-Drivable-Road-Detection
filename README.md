@@ -6,7 +6,7 @@
 
 # Argoverse Dataset API for 3D Drivable Road Detection
 ### By : Christofel Rio Goenawan
-### Master of Robotics at Korea Advanced Institute of Science and Technology
+### Master of Robotics at Korea Advanced Institute of Science and Technology (KAIST)
 ### E- Mail : christofel.goenawan@kaist.ac.kr
 
 ---
