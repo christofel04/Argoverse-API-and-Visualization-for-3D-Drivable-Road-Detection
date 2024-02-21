@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 class ArgoverseTrackingLoader:
-    def __init__(self, root_dir: str , av_hd_map_dir = "/home/ofel04/argoverse-api/map_files/") -> None:
+    def __init__(self, root_dir: str , av_hd_map_dir = "/home/ofel04/argoverse-api/map_files/" , max_number_of_log = None) -> None:
         # initialize class member
         self.CAMERA_LIST = CAMERA_LIST
         self._log_list: Optional[List[str]] = None
@@ -46,6 +46,8 @@ class ArgoverseTrackingLoader:
         self._calib: Optional[Dict[str, Dict[str, Calibration]]] = None  # { log_name: { camera_name: Calibration } }
         self._city_name = None
         self.counter: int = 0
+        
+        self.max_number_of_log = max_number_of_log
 
         self.image_count: int = 0
         self.lidar_count: int = 0
@@ -125,6 +127,10 @@ class ArgoverseTrackingLoader:
                 return os.path.exists(os.path.join(self.root_dir, log, "vehicle_calibration_info.json"))
 
             self._log_list = [x for x in os.listdir(self.root_dir) if valid_log(x)]
+            
+            if self.max_number_of_log :
+            
+            	self._log_list = self._log_list[ : self.max_number_of_log ]
 
         return self._log_list
 
@@ -429,7 +435,11 @@ Total bounding box: {sum(num_annotations)}
 
         return np.array( img )
 
-
+    def get_drivable_area_label_from_pickle( self , idx : int ) -> str :
+    
+    	name_of_drivabel_area_label_pickle = self.root_dir + "/" + str( self.current_log ) + "/" + self._lidar_list[ self.current_log ][idx].split( "/" )[-1].replace(".ply", "" ) + ".pickle"
+    	
+    	return str( name_of_drivabel_area_label_pickle )
 
     def __getitem__(self, key: int) -> "ArgoverseTrackingLoader":
         self.counter = key
@@ -438,6 +448,7 @@ Total bounding box: {sum(num_annotations)}
         self.num_ring_camera_frame = len(self.image_timestamp_list[RING_CAMERA_LIST[0]])
         self.num_stereo_camera_frame = len(self.image_timestamp_list[STEREO_CAMERA_LIST[0]])
         self.bev_map_drivable_area_label = self.get_rasterized_drivabel_area_label( key ) # Get Drivable Area Label for map
+        
         return self
 
     def get(self, log_id: str) -> "ArgoverseTrackingLoader":
@@ -667,6 +678,14 @@ Total bounding box: {sum(num_annotations)}
 
         return lidar_pts_new_coordinate
 
+    def get_bev_tensor_lidar_from_pickle( self , idx : int ) -> str :
+    
+    	name_of_bev_tensor_file = self.root_dir + "/" + str( self.current_log ) + "/" + self._lidar_list[ self.current_log ][idx].split( "/" )[-1].replace(".ply", "" ) + ".pickle"
+    	
+    	#f = open( name_of_bev_tensor_file , "rb+")
+    	
+    	return name_of_bev_tensor_file
+    	
     def get_label_object(self, idx: int, log_id: Optional[str] = None) -> List[ObjectLabelRecord]:
         """Get label corresponding to frame index idx (in lidar frame).
 

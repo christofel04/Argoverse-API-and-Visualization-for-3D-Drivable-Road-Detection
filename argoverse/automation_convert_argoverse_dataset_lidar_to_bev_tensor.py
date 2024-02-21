@@ -140,7 +140,10 @@ def convert_lidar_points_to_bev_tensors( lidar_pts , voxel_size = [ 0.2 , 0.2 ] 
         #print( "Dimension of padding list of BEV tensor : " + str( padding_list_of_bev_tensor.shape ))
                                                
         list_of_bev_tensor_indices = np.append( list_of_bev_tensor_indices , np.array( [[0 for i in range(3)] for j in range( number_of_padding_tensor )] ), axis = 0)
-                                                     
+
+    list_of_bev_tensor = list_of_bev_tensor.reshape( 1 , max_number_pillars , max_number_points , 9)
+    list_of_bev_tensor_indices = list_of_bev_tensor_indices.reshape( 1 , max_number_pillars , 3 )
+
     print( "Dimension of BEV tensor : " + str( list_of_bev_tensor.shape ))
     print( "Dimension of BEV tensor Index : " + str( list_of_bev_tensor_indices.shape ))
     
@@ -153,7 +156,9 @@ tracking_train_dataset_dir = '/home/ofel04/Downloads/tracking_train1_v1.1/argove
 
 argoverse_loader = ArgoverseTrackingLoader( tracking_train_dataset_dir )
 
-for index_log_argoverse in range( 0, len( argoverse_loader.log_list )  ) :
+max_number_log_extracted = 23 #len( argoverse_loader.log_list )
+
+for index_log_argoverse in range( 0 , max_number_log_extracted  ) :
 
     log_id = argoverse_loader.log_list[ index_log_argoverse ]
 
@@ -163,6 +168,10 @@ for index_log_argoverse in range( 0, len( argoverse_loader.log_list )  ) :
 
     os.makedirs( name_of_bev_tensor_folder , exist_ok=True )
 
+    name_of_bev_drivable_area_label_folder = tracking_train_dataset_dir + "/" + str( log_id ) + "/BEV_drivable_area_label/"
+
+    os.makedirs( name_of_bev_drivable_area_label_folder , exist_ok= True )
+
     print( "Making BEV tensor for Log Argoverse Dataset : " + str( index_log_argoverse ))
 
     argoverse_data = argoverse_loader[ index_log_argoverse ]
@@ -170,6 +179,8 @@ for index_log_argoverse in range( 0, len( argoverse_loader.log_list )  ) :
     number_samples = len( argoverse_loader._lidar_timestamp_list[ str( log_id ) ] )
 
     for frame_argoverse_index in range( number_samples ) :
+
+        """
         
         lidar_pts = argoverse_data.get_lidar_in_rasterized_map_coordinate( frame_argoverse_index )
 
@@ -184,6 +195,22 @@ for index_log_argoverse in range( 0, len( argoverse_loader.log_list )  ) :
 
         print( "Success convert LiDAR points into BEV tensor log {} frame number {} to file : {}".format( index_log_argoverse , frame_argoverse_index , name_of_lidar_frame_file ))
         print( "-----------------------------------------" )
+        
+        """
+
+        # Makin tensor label for drivable area map
+
+        drivable_area_label = argoverse_data.get_rasterized_drivabel_area_label( key = frame_argoverse_index )
+
+        name_of_drivable_area_label = name_of_bev_drivable_area_label_folder + str( argoverse_data._lidar_list[ log_id ][ frame_argoverse_index ] ).split( "/")[-1].replace( ".ply" , "" ) + ".pickle"
+
+        with open( name_of_drivable_area_label , 'wb+') as handle:
+            pickle.dump( drivable_area_label, handle)
+
+        print( "Succes creating BEV drivable area label log {} frame number : {} to file : {}".format( index_log_argoverse , frame_argoverse_index , name_of_drivable_area_label ) )
+        print( "-------------------------------------------")
+
+
         
 
             
