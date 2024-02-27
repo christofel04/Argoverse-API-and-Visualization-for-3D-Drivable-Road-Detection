@@ -344,6 +344,7 @@ class ArgoverseTrackingLoader:
 
     def __next__(self , av_hd_map_dir = "/home/ofel04/argoverse-api/map_files/" ) -> "ArgoverseTrackingLoader":
         self.counter += 1
+        #print( "Current City is : " + str( self.city_name ))
 
         if self.counter >= len(self):
             raise StopIteration
@@ -356,6 +357,7 @@ class ArgoverseTrackingLoader:
             avmap = ArgoverseMap( root = av_hd_map_dir )
             
             self.current_city_name = self.city_name
+            print( "Current City is : " + str( self.current_city_name ))
             self.drivable_rasterized_map = avmap.get_rasterized_driveable_area( self.current_city_name )[0][ : , : ]
             self.drivable_rasterized_map_rotation_matrix = np.array( avmap.get_rasterized_driveable_area( self.current_city_name )[1][ : , : ])
             
@@ -437,7 +439,7 @@ Total bounding box: {sum(num_annotations)}
 
     def get_drivable_area_label_from_pickle( self , idx : int ) -> str :
     
-    	name_of_drivabel_area_label_pickle = self.root_dir + "/" + str( self.current_log ) + "/" + self._lidar_list[ self.current_log ][idx].split( "/" )[-1].replace(".ply", "" ) + ".pickle"
+    	name_of_drivabel_area_label_pickle = self.root_dir + "/" + str( self.current_log ) + "/BEV_drivable_area_label/" + self._lidar_list[ self.current_log ][idx].split( "/" )[-1].replace(".ply", "" ) + ".pickle"
     	
     	return str( name_of_drivabel_area_label_pickle )
 
@@ -680,7 +682,7 @@ Total bounding box: {sum(num_annotations)}
 
     def get_bev_tensor_lidar_from_pickle( self , idx : int ) -> str :
     
-    	name_of_bev_tensor_file = self.root_dir + "/" + str( self.current_log ) + "/" + self._lidar_list[ self.current_log ][idx].split( "/" )[-1].replace(".ply", "" ) + ".pickle"
+    	name_of_bev_tensor_file = self.root_dir + "/" + str( self.current_log ) + "/BEV_tensor_folder/" + self._lidar_list[ self.current_log ][idx].split( "/" )[-1].replace(".ply", "" ) + ".pickle"
     	
     	#f = open( name_of_bev_tensor_file , "rb+")
     	

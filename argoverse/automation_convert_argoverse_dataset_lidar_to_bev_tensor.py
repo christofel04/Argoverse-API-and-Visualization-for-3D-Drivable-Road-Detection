@@ -207,10 +207,14 @@ for index_log_argoverse in range( 0 , max_number_log_extracted  ) :
         with open( name_of_drivable_area_label , 'wb+') as handle:
             pickle.dump( drivable_area_label, handle)
 
+        print( "Sum of drivable area is : " + str( np.sum( drivable_area_label )))
+        
+
         print( "Succes creating BEV drivable area label log {} frame number : {} to file : {}".format( index_log_argoverse , frame_argoverse_index , name_of_drivable_area_label ) )
         print( "-------------------------------------------")
 
 
+    argoverse_loader.__next__()
         
 
             
